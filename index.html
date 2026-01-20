@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Home Electricity Load Calculator</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  font-family: Calibri, Poppins, sans-serif;
+  background: linear-gradient(135deg, #e6f4ea, #c5e1a5);
+  color: #1b5e20;
+}
+
+header {
+  background: linear-gradient(to right, #2e7d32, #66bb6a);
+  padding: 22px;
+  text-align: center;
+  color: #fffde7;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 20px auto;
+  background: #e8f5e9;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+label {
+  font-weight: 600;
+}
+
+select, input {
+  width: 100%;
+  padding: 9px;
+  margin: 6px 0 14px;
+  border-radius: 5px;
+  border: 1px solid #81c784;
+  font-family: Poppins;
+  font-size: 15px;
+}
+
+button {
+  background: linear-gradient(to right, #fbc02d, #f57f17);
+  color: #263238;
+  padding: 12px 30px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 25px;
+  font-size: 14px;
+}
+
+th {
+  background: #2e7d32;
+  color: #fffde7;
+  padding: 10px;
+}
+
+td {
+  padding: 8px;
+  border: 1px solid #a5d6a7;
+  text-align: center;
+}
+
+tr:nth-child(even) {
+  background: #c8e6c9;
+}
+
+.summary {
+  margin-top: 30px;
+  background: linear-gradient(to right, #aed581, #fff176);
+  padding: 18px;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+.summary p {
+  margin: 6px 0;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Home Electricity Load Calculator</h1>
+<p>Automatic State Tariff + GST Based Estimation</p>
+</header>
+
+<div class="container">
+
+<label>Select State / Union Territory</label>
+<select id="state"></select>
+
+<label>Appliance Name</label>
+<input id="appliance" placeholder="Ex: Air Conditioner">
+
+<label>Wattage (W)</label>
+<input id="watt" type="number" placeholder="Ex: 1500">
+
+<label>Usage per Day (Hours)</label>
+<input id="hours" type="number" placeholder="Ex: 6">
+
+<label>Number of Appliances</label>
+<input id="count" type="number" value="1">
+
+<button onclick="addAppliance()">Add Appliance</button>
+
+<table>
+<thead>
+<tr>
+<th>Appliance</th>
+<th>Total Watt</th>
+<th>Hours</th>
+<th>Daily Units (kWh)</th>
+<th>Daily Cost (₹)</th>
+</tr>
+</thead>
+<tbody id="rows"></tbody>
+</table>
+
+<div class="summary">
+<p><b>Total Connected Load:</b> <span id="totalWatt">0</span> W</p>
+<p><b>Daily Consumption:</b> <span id="totalUnits">0</span> kWh</p>
+<p><b>Daily Cost (Incl. GST):</b> ₹<span id="dailyCost">0</span></p>
+<p><b>Monthly Cost:</b> ₹<span id="monthlyCost">0</span></p>
+<p><b>Yearly Cost:</b> ₹<span id="yearlyCost">0</span></p>
+</div>
+
+</div>
+
+<script>
+// ALL INDIA ELECTRICITY TARIFF (₹/kWh) – States + UTs
+const stateRates = {
+"Andhra Pradesh":6.6,"Arunachal Pradesh":5.8,"Assam":6.2,"Bihar":7.5,
+"Chhattisgarh":6.4,"Goa":6.8,"Gujarat":7.2,"Haryana":7.1,
+"Himachal Pradesh":5.9,"Jharkhand":6.8,"Karnataka":7.4,"Kerala":6.9,
+"Madhya Pradesh":7.2,"Maharashtra":8.0,"Manipur":5.7,"Meghalaya":6.0,
+"Mizoram":5.6,"Nagaland":5.9,"Odisha":6.3,"Punjab":6.9,
+"Rajasthan":7.8,"Sikkim":5.4,"Tamil Nadu":7.0,"Telangana":6.7,
+"Tripura":5.8,"Uttar Pradesh":7.0,"Uttarakhand":6.5,"West Bengal":7.3,
+"Andaman & Nicobar Islands":6.2,"Chandigarh":6.6,
+"Dadra & Nagar Haveli and Daman & Diu":6.4,"Delhi":6.5,
+"Jammu & Kashmir":5.9,"Ladakh":5.6,"Lakshadweep":6.0,"Puducherry":6.8
+};
+
+// Populate state dropdown
+const stateSelect = document.getElementById("state");
+Object.keys(stateRates).forEach(s=>{
+  const opt = document.createElement("option");
+  opt.value = s;
+  opt.text = s;
+  stateSelect.add(opt);
+});
+
+// DOM elements
+const rows = document.getElementById("rows");
+const applianceInput = document.getElementById("appliance");
+const wattInput = document.getElementById("watt");
+const hoursInput = document.getElementById("hours");
+const countInput = document.getElementById("count");
+const totalWattSpan = document.getElementById("totalWatt");
+const totalUnitsSpan = document.getElementById("totalUnits");
+const dailyCostSpan = document.getElementById("dailyCost");
+const monthlyCostSpan = document.getElementById("monthlyCost");
+const yearlyCostSpan = document.getElementById("yearlyCost");
+
+// Totals
+let totalWatt = 0;
+let totalUnits = 0;
+
+function addAppliance(){
+  const appliance = applianceInput.value.trim();
+  const watt = Number(wattInput.value);
+  const hours = Number(hoursInput.value);
+  const count = Number(countInput.value);
+  const state = stateSelect.value;
+  if(!appliance || watt<=0 || hours<=0 || count<=0) return alert("Please fill all fields correctly.");
+
+  const rate = stateRates[state]; // ₹/kWh
+  const totalApplianceWatt = watt * count;
+  const units = (totalApplianceWatt * hours)/1000;
+  const cost = units * rate * 1.18; // GST 18%
+
+  // Update totals
+  totalWatt += totalApplianceWatt;
+  totalUnits += units;
+
+  // Add row
+  rows.innerHTML += `<tr>
+    <td>${appliance}</td>
+    <td>${totalApplianceWatt}</td>
+    <td>${hours}</td>
+    <td>${units.toFixed(2)}</td>
+    <td>₹${cost.toFixed(2)}</td>
+  </tr>`;
+
+  // Update summary
+  totalWattSpan.innerText = totalWatt;
+  totalUnitsSpan.innerText = totalUnits.toFixed(2);
+  dailyCostSpan.innerText = (totalUnits * rate * 1.18).toFixed(2);
+  monthlyCostSpan.innerText = (totalUnits * rate * 1.18 * 30).toFixed(2);
+  yearlyCostSpan.innerText = (totalUnits * rate * 1.18 * 365).toFixed(2);
+
+  // Clear inputs
+  applianceInput.value="";
+  wattInput.value="";
+  hoursInput.value="";
+  countInput.value=1;
+}
+</script>
+
+</body>
+</html>
